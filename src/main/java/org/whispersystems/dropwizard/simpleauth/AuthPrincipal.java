@@ -16,7 +16,6 @@ public class AuthPrincipal implements Principal {
     return null;
   }
 
-  @Override
   public boolean implies(Subject subject) {
     return false;
   }
