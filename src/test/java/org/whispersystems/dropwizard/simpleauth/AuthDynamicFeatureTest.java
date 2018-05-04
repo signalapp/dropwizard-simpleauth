@@ -1,15 +1,20 @@
 package org.whispersystems.dropwizard.simpleauth;
 
 
-import com.google.common.base.Optional;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
+import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ResourceInfo;
 import javax.ws.rs.core.FeatureContext;
+
+import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
 import io.dropwizard.auth.AuthenticationException;
 import io.dropwizard.auth.basic.BasicCredentials;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertTrue;
 import static org.mockito.Mockito.*;
 
 public class AuthDynamicFeatureTest {
@@ -34,11 +39,33 @@ public class AuthDynamicFeatureTest {
 
     dynamicFeature.configure(resourceInfo, featureContext);
     verify(featureContext).register(eq(stringPrincipal));
+    reset(featureContext);
 
     when(resourceInfo.getResourceMethod()).thenReturn(MockMethod.class.getDeclaredMethod("integerAuthParam", Integer.class));
 
     dynamicFeature.configure(resourceInfo, featureContext);
     verify(featureContext).register(eq(integerPrincipal));
+    reset(featureContext);
+
+    when(resourceInfo.getResourceMethod()).thenReturn(MockMethod.class.getDeclaredMethod("optionalStringAuthParam", Optional.of("test").getClass()));
+
+    dynamicFeature.configure(resourceInfo, featureContext);
+
+    ArgumentCaptor<ContainerRequestFilter> stringOptionalCaptor = ArgumentCaptor.forClass(ContainerRequestFilter.class);
+    verify(featureContext).register(stringOptionalCaptor.capture());
+    assertTrue(stringOptionalCaptor.getValue() instanceof WebApplicationExceptionCatchingFilter);
+    assertEquals(((WebApplicationExceptionCatchingFilter)stringOptionalCaptor.getValue()).getUnderlying(), stringPrincipal);
+
+    reset(featureContext);
+
+    when(resourceInfo.getResourceMethod()).thenReturn(MockMethod.class.getDeclaredMethod("optionalIntegerAuthParam", Optional.of(1).getClass()));
+
+    dynamicFeature.configure(resourceInfo, featureContext);
+
+    ArgumentCaptor<ContainerRequestFilter> integerOptionalCaptor = ArgumentCaptor.forClass(ContainerRequestFilter.class);
+    verify(featureContext, times(1)).register(integerOptionalCaptor.capture());
+    assertTrue(integerOptionalCaptor.getValue() instanceof WebApplicationExceptionCatchingFilter);
+    assertEquals(((WebApplicationExceptionCatchingFilter)integerOptionalCaptor.getValue()).getUnderlying(), integerPrincipal);
   }
 
   @Test
@@ -55,12 +82,26 @@ public class AuthDynamicFeatureTest {
     } catch (Exception e) {
       // Good
     }
+
+    when(resourceInfo.getResourceMethod()).thenReturn(MockMethod.class.getDeclaredMethod("multipleOptionalAuthParams", Optional.of("foo").getClass(), Optional.of("bar").getClass()));
+
+    try {
+      dynamicFeature.configure(resourceInfo, featureContext);
+      throw new AssertionError("Shouldn't support multiple auth tags!");
+    } catch (Exception e) {
+      // Good
+    }
+
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static class MockMethod {
     public void multipleAuthParams(@Auth String foo, @Auth String bar) {}
     public void stringAuthParam(@Auth String foo) {}
     public void integerAuthParam(@Auth Integer bar) {}
+    public void optionalStringAuthParam(@Auth Optional<String> foo) {}
+    public void optionalIntegerAuthParam(@Auth Optional<Integer> bar) {}
+    public void multipleOptionalAuthParams(@Auth Optional<String> foo, @Auth Optional<String> bar) {}
   }
 
   private static class StringAuthenticator implements Authenticator<BasicCredentials, String> {
@@ -72,7 +113,7 @@ public class AuthDynamicFeatureTest {
           credentials.getPassword().equals("password"))
         return Optional.of("user");
 
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 

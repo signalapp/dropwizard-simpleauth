@@ -6,6 +6,9 @@ import javax.ws.rs.container.DynamicFeature;
 import javax.ws.rs.container.ResourceInfo;
 import javax.ws.rs.core.FeatureContext;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
 
@@ -19,22 +22,30 @@ public class AuthDynamicFeature implements DynamicFeature {
 
   @Override
   public void configure(ResourceInfo resourceInfo, FeatureContext context) {
-    AnnotatedMethod annotatedMethod      = new AnnotatedMethod(resourceInfo.getResourceMethod());
-    Annotation[][]  parameterAnnotations = annotatedMethod.getParameterAnnotations();
-    Class<?>[]      parameterTypes       = annotatedMethod.getParameterTypes();
+    AnnotatedMethod annotatedMethod       = new AnnotatedMethod(resourceInfo.getResourceMethod());
+    Annotation[][]  parameterAnnotations  = annotatedMethod.getParameterAnnotations();
+    Class<?>[]      parameterTypes        = annotatedMethod.getParameterTypes      ();
+    Type[]          parameterGenericTypes = annotatedMethod.getGenericParameterTypes();
 
     verifyAuthAnnotations(parameterAnnotations);
 
     for (int i=0;i<parameterAnnotations.length;i++) {
       for (Annotation annotation : parameterAnnotations[i]) {
         if (annotation instanceof Auth) {
-          context.register(getFilterFor(parameterTypes[i]));
+          Type parameterType = parameterTypes[i];
+
+          if (parameterType == Optional.class) {
+            parameterType = ((ParameterizedType)parameterGenericTypes[i]).getActualTypeArguments()[0];
+            context.register(new WebApplicationExceptionCatchingFilter(getFilterFor(parameterType)));
+          } else {
+            context.register(getFilterFor(parameterType));
+          }
         }
       }
     }
   }
 
-  private AuthFilter getFilterFor(Class<?> parameterType) {
+  private AuthFilter getFilterFor(Type parameterType) {
     for (AuthFilter filter : authFilters) {
       if (filter.supports(parameterType)) return filter;
     }

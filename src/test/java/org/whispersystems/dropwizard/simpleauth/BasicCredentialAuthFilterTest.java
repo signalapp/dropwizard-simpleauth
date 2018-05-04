@@ -1,6 +1,5 @@
 package org.whispersystems.dropwizard.simpleauth;
 
-import com.google.common.base.Optional;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -12,6 +11,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.SecurityContext;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import io.dropwizard.auth.AuthenticationException;
 import io.dropwizard.auth.basic.BasicCredentials;
@@ -76,7 +76,7 @@ public class BasicCredentialAuthFilterTest {
         return Optional.of("user");
       }
 
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 }

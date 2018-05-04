@@ -1,7 +1,7 @@
 package org.whispersystems.dropwizard.simpleauth;
 
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 
 import io.dropwizard.auth.AuthenticationException;
 
@@ -17,7 +17,7 @@ public interface Authenticator<C, P> {
    * Given a set of user-provided credentials, return an optional principal.
    *
    * If the credentials are valid and map to a principal, returns an {@code Optional.of(p)}.
-   * 
+   *
    * If the credentials are invalid, returns an {@code Optional.absent()}.
    *
    * @param credentials a set of user-provided credentials

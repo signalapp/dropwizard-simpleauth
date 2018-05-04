@@ -14,6 +14,7 @@ import org.glassfish.jersey.server.spi.internal.ValueFactoryProvider;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.security.Principal;
+import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
 
@@ -33,29 +34,62 @@ public class AuthValueFactoryProvider extends AbstractValueFactoryProvider {
       return null;
     }
 
-    return new AbstractContainerRequestValueFactory() {
+    if (parameter.getRawType() == Optional.class) {
+      return new OptionalContainerRequestValueFactory(parameter);
+    } else {
+      return new StandardContainerReqeustValueFactory(parameter);
+    }
+  }
 
-      /**
-       * @return {@link Principal} stored on the request, or {@code null} if no object was found.
-       */
-      public Object provide() {
-        Principal principal = getContainerRequest().getSecurityContext().getUserPrincipal();
+  private static class StandardContainerReqeustValueFactory extends AbstractContainerRequestValueFactory {
+    private final Parameter parameter;
 
-        if (principal == null) {
-          throw new IllegalStateException("Cannot inject a custom principal into unauthenticated request");
-        }
+    StandardContainerReqeustValueFactory(Parameter parameter) {
+      this.parameter = parameter;
+    }
 
-        if (!(principal instanceof AuthPrincipal)) {
-          throw new IllegalArgumentException("Cannot inject a non-AuthPrincipal into request");
-        }
+    /**
+     * @return {@link Principal} stored on the request, or {@code null} if no object was found.
+     */
+    public Object provide() {
+      Principal principal = getContainerRequest().getSecurityContext().getUserPrincipal();
 
-        if (!parameter.getRawType().isAssignableFrom(((AuthPrincipal)principal).getAuthenticated().getClass())) {
-          throw new IllegalArgumentException("Authenticated principal is of the wrong type!");
-        }
-
-        return parameter.getRawType().cast(((AuthPrincipal) principal).getAuthenticated());
+      if (principal == null) {
+        throw new IllegalStateException("Cannot inject a custom principal into unauthenticated request");
       }
-    };
+
+      if (!(principal instanceof AuthPrincipal)) {
+        throw new IllegalArgumentException("Cannot inject a non-AuthPrincipal into request");
+      }
+
+      if (!parameter.getRawType().isAssignableFrom(((AuthPrincipal)principal).getAuthenticated().getClass())) {
+        throw new IllegalArgumentException("Authenticated principal is of the wrong type!");
+      }
+
+      return parameter.getRawType().cast(((AuthPrincipal) principal).getAuthenticated());
+    }
+  }
+
+  private static class OptionalContainerRequestValueFactory extends AbstractContainerRequestValueFactory {
+    private final Parameter parameter;
+
+    OptionalContainerRequestValueFactory(Parameter parameter) {
+      this.parameter = parameter;
+    }
+
+    /**
+     * @return {@link Principal} stored on the request, or {@code null} if no object was found.
+     */
+    public Object provide() {
+      Principal principal = getContainerRequest().getSecurityContext().getUserPrincipal();
+
+      if (principal != null && !(principal instanceof AuthPrincipal)) {
+        throw new IllegalArgumentException("Cannot inject a non-AuthPrincipal into request");
+      }
+
+      if (principal == null) return Optional.empty();
+      else                   return Optional.of(((AuthPrincipal)principal).getAuthenticated());
+    }
   }
 
   @Singleton

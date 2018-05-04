@@ -6,6 +6,9 @@ import javax.annotation.Priority;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestFilter;
 
+import java.lang.reflect.Type;
+import java.util.Optional;
+
 import io.dropwizard.auth.DefaultUnauthorizedHandler;
 import io.dropwizard.auth.UnauthorizedHandler;
 
@@ -19,7 +22,7 @@ public abstract class AuthFilter<C, P> implements ContainerRequestFilter {
   protected UnauthorizedHandler unauthorizedHandler = new DefaultUnauthorizedHandler();
 
 
-  public boolean supports(Class<?> clazz) {
+  public boolean supports(Type clazz) {
     return clazz.equals(principalType);
   }
 
