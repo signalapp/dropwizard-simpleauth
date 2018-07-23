@@ -1,5 +1,6 @@
 package org.whispersystems.dropwizard.simpleauth;
 
+import com.google.common.io.BaseEncoding;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -23,7 +24,9 @@ public class BasicCredentialAuthFilterTest {
 
   @Test
   public void testValidAuth() throws IOException {
-    AuthFilter authFilter = new BasicCredentialAuthFilter.Builder<String>().setAuthenticator(new StringAuthenticator())
+    StringAuthenticator authenticator = new StringAuthenticator("user", "foo");
+
+    AuthFilter authFilter = new BasicCredentialAuthFilter.Builder<String>().setAuthenticator(authenticator)
                                                                            .setPrincipal(String.class)
                                                                            .setRealm("Hmm")
                                                                            .buildAuthFilter();
@@ -45,8 +48,34 @@ public class BasicCredentialAuthFilterTest {
   }
 
   @Test
+  public void testEmptyUsername() throws IOException {
+    StringAuthenticator authenticator = new StringAuthenticator("", "foo");
+
+    AuthFilter authFilter = new BasicCredentialAuthFilter.Builder<String>().setAuthenticator(authenticator)
+                                                                           .setPrincipal(String.class)
+                                                                           .setRealm("Hmm")
+                                                                           .buildAuthFilter();
+
+    MultivaluedMap<String, String> headers = new MultivaluedHashMap<>();
+    headers.add(HttpHeaders.AUTHORIZATION, "Basic " + BaseEncoding.base64().encode(":foo".getBytes()));
+
+    ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
+    when(containerRequestContext.getHeaders()).thenReturn(headers);
+
+    authFilter.filter(containerRequestContext);
+
+    ArgumentCaptor<SecurityContext> captor = ArgumentCaptor.forClass(SecurityContext.class);
+    verify(containerRequestContext).setSecurityContext(captor.capture());
+
+    assertTrue(captor.getValue().getUserPrincipal() instanceof AuthPrincipal);
+    assertEquals(((AuthPrincipal) captor.getValue().getUserPrincipal()).getAuthenticated(), "");
+  }
+
+  @Test
   public void testInvalidAuth() throws Exception {
-    AuthFilter authFilter = new BasicCredentialAuthFilter.Builder<String>().setAuthenticator(new StringAuthenticator())
+    StringAuthenticator authenticator = new StringAuthenticator("user", "foo");
+
+    AuthFilter authFilter = new BasicCredentialAuthFilter.Builder<String>().setAuthenticator(authenticator)
                                                                            .setPrincipal(String.class)
                                                                            .setRealm("Hmm")
                                                                            .buildAuthFilter();
@@ -70,10 +99,18 @@ public class BasicCredentialAuthFilterTest {
 
   private static class StringAuthenticator implements Authenticator<BasicCredentials, String> {
 
+    private final String user;
+    private final String password;
+
+    public StringAuthenticator(String user, String password) {
+      this.user     = user;
+      this.password = password;
+    }
+
     @Override
     public Optional<String> authenticate(BasicCredentials credentials) throws AuthenticationException {
-      if (credentials.getUsername().equals("user") && credentials.getPassword().equals("foo")) {
-        return Optional.of("user");
+      if (credentials.getUsername().equals(user) && credentials.getPassword().equals(password)) {
+        return Optional.of(user);
       }
 
       return Optional.empty();
