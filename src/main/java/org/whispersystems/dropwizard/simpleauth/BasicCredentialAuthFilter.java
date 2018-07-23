@@ -38,7 +38,7 @@ public class BasicCredentialAuthFilter<P> extends AuthFilter<BasicCredentials, P
                 BaseEncoding.base64().decode(header.substring(space + 1)),
                 StandardCharsets.UTF_8);
             final int i = decoded.indexOf(':');
-            if (i > 0) {
+            if (i >= 0) {
               final String username = decoded.substring(0, i);
               final String password = decoded.substring(i + 1);
               final BasicCredentials credentials = new BasicCredentials(username, password);
